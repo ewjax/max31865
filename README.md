@@ -1,6 +1,8 @@
 # max31865
 Python module to convert RTD PT100 resistance readings to temperature using the MAX31865 chip.
 
+Copyright (c) 2019 Elliott W. Jackson
+
 Usage is simple (shown assuming chip is wired to CE0 of SPI0, on Raspberry Pi):
 
     csPin   = 8
@@ -10,7 +12,6 @@ Usage is simple (shown assuming chip is wired to CE0 of SPI0, on Raspberry Pi):
     max     = max31865.max31865(csPin, misoPin, mosiPin, clkPin)
     
     tempC   = max.temperature()
-Adapted from 'max31865' class as published by Stephen P. Smith on github in 2015.  This work is very much derivative from that starting point.
 
 ***Discussion***
 
@@ -52,8 +53,10 @@ Fitting error over range [-200C to 850C]
 
 Usage (these are equivalent)
 
-​        `tempC = max.temperature() `
-​		`tempC = max.temperature_poly5()`
+```
+       tempC = max.temperature()
+       tempC = max.temperature_poly5()
+```
 
 
 
@@ -95,7 +98,8 @@ where
         c2  =  6.8975E-04
         c1  =  2.3803E+00
         c0  = -2.4568E+02
-   Fitting error over range [-200C to 850C]
+        
+Fitting error over range [-200C to 850C]
 
 ​		0.01 degC average, 1.35 degC maximum
 
@@ -104,7 +108,9 @@ Usage
 ​		`tempC = max.temperature_poly3()`
 
 
+Adapted from 'max31865' class as published by Stephen P. Smith on github in 2015.  https://github.com/steve71/MAX31865
 
-Copyright (c) 2019 Elliott W. Jackson
+
+
 
 
