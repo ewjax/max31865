@@ -15,6 +15,8 @@ Usage is simple (shown assuming chip is wired to CE0 of SPI0, on Raspberry Pi):
 
 ***Discussion***
 
+Adapted from 'max31865' class as published by Stephen P. Smith https://github.com/steve71/MAX31865
+
 Significant changes primarily revolve around the method to convert the resistance values as read from the RTD to a temperature value.  The Callendar-Van Dusen (hereafter, C-VD) equation is fundamentally a curve fit of resistance as a function of temperature, i.e.
 
 ​		***R = f(T)***
@@ -108,7 +110,6 @@ Usage
 ​		`tempC = max.temperature_poly3()`
 
 
-Adapted from 'max31865' class as published by Stephen P. Smith on github in 2015.  https://github.com/steve71/MAX31865
 
 
 
