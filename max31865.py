@@ -17,9 +17,9 @@ import RPi.GPIO as GPIO
 #           b) converting that resistance to a temperature
 #           c) this was done to allow multiple methods of performing the conversion of Resistance to Temperature
 #   - added several polynomial fits to provide the conversion from Resistance to Temperature
-#           a) 3rd order (fitting error = .01 degC average, 1.35 degC maximum, over range [-200C to 850C]
-#           b) 4th order (fitting error = .01 degC average, .51 degC maximum, over range [-200C to 850C]
-#           c) 5th order (fitting error = .01 degC average, .24 degC maximum, over range [-200C to 850C]
+#           a) 3rd order (fitting error = 0.0 degC average, 0.98 degC maximum, over range [-200C to 660C]
+#           b) 4th order (fitting error = 0.0 degC average, 0.39 degC maximum, over range [-200C to 660C]
+#           c) 5th order (fitting error = 0.0 degC average, 0.13 degC maximum, over range [-200C to 660C]
 #           d) the default = the 5th order fit, since the performance difference on my RPi 3B and 3B+ is absolutely negligible,
 #              but the others can be called if you are using a slower device
 #
@@ -212,7 +212,7 @@ class max31865(object):
 
 
     #
-    # convert RTD reading to Temperature, using 3rd order polynomial fit of inverse Callendar-Van Dusen equation, i.e. Temperature as a function of Resistance
+    # convert RTD reading to Temperature, using 3rd order polynomial fit of Temperature as a function of Resistance
     #
     #   temp_C = (c3 * res^3) + (c2 * res^2) + (c1 * res) + c0
     #
@@ -225,10 +225,10 @@ class max31865(object):
     def temperature_poly3(self):
 
         # coeffs for 3rd order fit
-        c3  =  1.0154E-06
-        c2  =  6.8975E-04
-        c1  =  2.3803E+00
-        c0  = -2.4568E+02
+        c3  =  7.00406E-07
+        c2  =  8.47800E-04
+        c1  =  2.35841E+00
+        c0  = -2.44950E+02
 
         # get RTD resistance
         res = self.readRTD()
@@ -248,7 +248,7 @@ class max31865(object):
 
 
     #
-    # convert RTD reading to Temperature, using 4th order polynomial fit of inverse Callendar-Van Dusen equation, i.e. Temperature as a function of Resistance
+    # convert RTD reading to Temperature, using 4th order polynomial fit of Temperature as a function of Resistance
     #
     #   temp_C = (c4 * res^4) + (c3 * res^3) + (c2 * res^2) + (c1 * res) + c0
     #
@@ -261,11 +261,11 @@ class max31865(object):
     def temperature_poly4(self):
 
         # coeffs for 4th order fit
-        c4  =  2.9401E-09
-        c3  = -1.4136E-06
-        c2  =  1.3543E-03
-        c1  =  2.3132E+00
-        c0  = -2.4381E+02
+        c4  =  4.11530E-09
+        c3  = -2.21378E-06
+        c2  =  1.53359E-03
+        c1  =  2.29835E+00
+        c0  = -2.43465E+02
 
         # get RTD resistance
         res = self.readRTD()
@@ -288,7 +288,7 @@ class max31865(object):
 
 
     #
-    # convert RTD reading to Temperature, using 5th order polynomial fit of inverse Callendar-Van Dusen equation, i.e. Temperature as a function of Resistance
+    # convert RTD reading to Temperature, using 5th order polynomial fit of Temperature as a function of Resistance
     #
     #   temp_C = (c5 * res^5) + (c4 * res^4) + (c3 * res^3) + (c2 * res^2) + (c1 * res) + c0
     #
@@ -301,12 +301,12 @@ class max31865(object):
     def temperature_poly5(self):
 
         # coeffs for 5th order fit
-        c5  = -9.2833E-12
-        c4  =  1.2506E-08
-        c3  = -4.9960E-06
-        c2  =  1.9435E-03
-        c1  =  2.2729E+00
-        c0  = -2.4297E+02
+        c5  = -2.10678E-11
+        c4  =  2.27311E-08
+        c3  = -8.20888E-06
+        c2  =  2.38589E-03
+        c1  =  2.24745E+00
+        c0  = -2.42522E+02
 
         # get RTD resistance
         res = self.readRTD()
