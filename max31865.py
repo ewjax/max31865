@@ -3,6 +3,7 @@
 import logging
 import time, math
 import RPi.GPIO as GPIO
+import threading
 
 
 #
@@ -35,10 +36,17 @@ class max31865(object):
         self.mosiPin = mosiPin
         self.clkPin = clkPin
         self.setupGPIO()
-        
+
+        self.goodreads = 0
+        self.badreads = 0
+
+        # threading lock for critical regions
+        self.lock = threading.RLock()
 #        self.logger = logging.getLogger(self.__class__.__name__)
 
 
+    def __del__(self):
+        print('csPin = {}: goodreads = {}, badreads = {}'.format(self.csPin, self.goodreads, self.badreads))
 
     def setupGPIO(self):
         GPIO.setwarnings(False)
@@ -128,14 +136,27 @@ class max31865(object):
         # Auto conversion = 11010010 = 0xD2
         #
 
+        # threading lock
+        self.lock.acquire()
+
         #one shot
         self.writeRegister(0, 0xB2)
 
-        # wait 10ms
-        time.sleep(0.010)
+        # wait
+#        time.sleep(0)
+#        time.sleep(0.0005)
+#        time.sleep(0.001)
+        time.sleep(0.005)
+#        time.sleep(0.010)
+#        time.sleep(0.020)
+#        time.sleep(0.1)
+#        time.sleep(0.5)
 
         # read all registers
         out = self.readRegisters(0, 8)
+
+        # release the thread lock
+        self.lock.release()
 
         # config register
         conf_reg = out[0]
@@ -175,16 +196,14 @@ class max31865(object):
         # bits 1,0 don't care    
 #        self.logger.debug('Status {:d}'.format(status))
 
-        if ((status & 0x80) == 1):
-            raise FaultError("High threshold limit (Cable fault/open)")
-        if ((status & 0x40) == 1):
-            raise FaultError("Low threshold limit (Cable fault/short)")
-        if ((status & 0x04) == 1):
-            raise FaultError("Overvoltage or Undervoltage Error") 
-
+        if status == 0:
+            self.goodreads += 1
+        else:
+            self.badreads += 1
 
         # return the RTD resistance
-        return Res_RTD
+        rv = Res_RTD
+        return (rv, status)
         
 
 
@@ -196,7 +215,7 @@ class max31865(object):
     def temperature_CVD(self):
 
         # get RTD resistance
-        res = self.readRTD()
+        (res, status) = self.readRTD()
 
         a       = .00390830
         b       = -.000000577500
@@ -207,7 +226,7 @@ class max31865(object):
         temp_C = temp_C / (2*(b*Res0))
 
 #        self.logger.debug('Callendar-Van Dusen Temp (degC > 0): {:f} degC, {:f} degF'.format(temp_C, c2f(temp_C)))
-        return temp_C
+        return (temp_C, status)
 
 
 
@@ -231,7 +250,7 @@ class max31865(object):
         c0  = -2.44950E+02
 
         # get RTD resistance
-        res = self.readRTD()
+        (res, status) = self.readRTD()
 
         # do the math
         #   temp_C = res ( res ( res ( res * c4 + c3) + c2) + c1) + c0
@@ -244,7 +263,7 @@ class max31865(object):
         temp_C += c0
 
 #        self.logger.debug('3rd order poly fit Temp: {:f} degC, {:f} degF'.format(temp_C, c2f(temp_C)))
-        return temp_C
+        return (temp_C, status)
 
 
     #
@@ -268,7 +287,7 @@ class max31865(object):
         c0  = -2.43465E+02
 
         # get RTD resistance
-        res = self.readRTD()
+        (res, status) = self.readRTD()
 
         # do the math
         #   temp_C = res ( res ( res ( res * c4 + c3) + c2) + c1) + c0
@@ -284,7 +303,7 @@ class max31865(object):
         temp_C += c0
 
 #        self.logger.debug('4th order poly fit Temp: {:f} degC, {:f} degF'.format(temp_C, c2f(temp_C)))
-        return temp_C
+        return (temp_C, status)
 
 
     #
@@ -309,7 +328,7 @@ class max31865(object):
         c0  = -2.42522E+02
 
         # get RTD resistance
-        res = self.readRTD()
+        (res, status) = self.readRTD()
 
         # do the math
         #   temp_C = res ( res ( res ( res ( res * c5 + c4) + c3) + c2) + c1) + c0
@@ -328,7 +347,7 @@ class max31865(object):
         temp_C += c0
 
 #        self.logger.debug('5th order poly fit Temp: {:f} degC, {:f} degF'.format(temp_C, c2f(temp_C)))
-        return temp_C
+        return (temp_C, status)
 
     #
     # default = the 5th order polynomial fit of inverse CVD
@@ -336,12 +355,9 @@ class max31865(object):
     # returns temperature, in celcius
     #
     def temperature(self):
-        return self.temperature_poly5()
+        (temp_C, status) = self.temperature_poly5()
+        return (temp_C, status)
 
-
-
-class FaultError(Exception):
-    pass
 
 
 #
@@ -360,7 +376,7 @@ def main():
     import max31865
     import timeit
 
-    logging.basicConfig(level=logging.DEBUG)
+#    logging.basicConfig(level=logging.DEBUG)
 
 
     # create instance of RTD reader class
@@ -372,58 +388,63 @@ def main():
     max     = max31865.max31865(csPin, misoPin, mosiPin, clkPin)
 
 
-    # do some timing.  
-    #
-    # Note that the time is completely dominated by the 10 millisecond sleep() call buried in the readRTD() function
-    # in other words, using the polynomial form to solve inverse Callander-Van Dusen adds negligible time to processing
-    def f1():
-        tempC = max.temperature_CVD()
-
-    def f2():
-        tempC = max.temperature_poly3()
-
-    def f3():
-        tempC = max.temperature_poly4()
-
-    def f4():
-        tempC = max.temperature_poly5()
-
-    def f5():
-        tempC = max.temperature()
-
-    nn = 10
-    duration = timeit.timeit(f1, number = nn)
-    print('{} calls to temperature_CVD duration = {:0.5}, Per-call = {:.5}'.format(nn, duration, duration/nn))
-    duration = timeit.timeit(f2, number = nn)
-    print('{} calls to temperature_poly3 duration = {:0.5}, Per-call = {:.5}'.format(nn, duration, duration/nn))
-    duration = timeit.timeit(f3, number = nn)
-    print('{} calls to temperature_poly4 duration = {:0.5}, Per-call = {:.5}'.format(nn, duration, duration/nn))
-    duration = timeit.timeit(f4, number = nn)
-    print('{} calls to temperature_poly5 duration = {:0.5}, Per-call = {:.5}'.format(nn, duration, duration/nn))
-    duration = timeit.timeit(f4, number = nn)
-    print('{} calls to temperature duration = {:0.5}, Per-call = {:.5}'.format(nn, duration, duration/nn))
+    for cnt in range(0, 1000):
+        (tempC, status) = max.temperature()
 
 
-
-    # turn on debugging within the class member functions - comment out to remove these diagnostics
-#    logging.basicConfig(level=logging.DEBUG)
-
-
-    tempC = max.temperature_CVD()
-    print('Callendar-Van Dusen Temp: {:.5} degC, {:.5} degF'.format(tempC, c2f(tempC)))
-
-    tempC = max.temperature_poly3()
-    print('3rd Order Poly Fit Temp: {:.5} degC, {:.5} degF'.format(tempC, c2f(tempC)))
-
-    tempC = max.temperature_poly4()
-    print('4th Order Poly Fit Temp: {:.5} degC, {:.5} degF'.format(tempC, c2f(tempC)))
-
-    tempC = max.temperature_poly5()
-    print('5th Order Poly Fit Temp: {:.5} degC, {:.5} degF'.format(tempC, c2f(tempC)))
-
-    tempC = max.temperature()
-    print('5th Order Poly Fit Temp: {:.5} degC, {:.5} degF'.format(tempC, c2f(tempC)))
-
+#
+#    # do some timing.  
+#    #
+#    # Note that the time is completely dominated by the 10 millisecond sleep() call buried in the readRTD() function
+#    # in other words, using the polynomial form to solve inverse Callander-Van Dusen adds negligible time to processing
+#    def f1():
+#        tempC = max.temperature_CVD()
+#
+#    def f2():
+#        tempC = max.temperature_poly3()
+#
+#    def f3():
+#        tempC = max.temperature_poly4()
+#
+#    def f4():
+#        tempC = max.temperature_poly5()
+#
+#    def f5():
+#        tempC = max.temperature()
+#
+#    nn = 10
+#    duration = timeit.timeit(f1, number = nn)
+#    print('{} calls to temperature_CVD duration = {:0.5}, Per-call = {:.5}'.format(nn, duration, duration/nn))
+#    duration = timeit.timeit(f2, number = nn)
+#    print('{} calls to temperature_poly3 duration = {:0.5}, Per-call = {:.5}'.format(nn, duration, duration/nn))
+#    duration = timeit.timeit(f3, number = nn)
+#    print('{} calls to temperature_poly4 duration = {:0.5}, Per-call = {:.5}'.format(nn, duration, duration/nn))
+#    duration = timeit.timeit(f4, number = nn)
+#    print('{} calls to temperature_poly5 duration = {:0.5}, Per-call = {:.5}'.format(nn, duration, duration/nn))
+#    duration = timeit.timeit(f4, number = nn)
+#    print('{} calls to temperature duration = {:0.5}, Per-call = {:.5}'.format(nn, duration, duration/nn))
+#
+#
+#
+#    # turn on debugging within the class member functions - comment out to remove these diagnostics
+##    logging.basicConfig(level=logging.DEBUG)
+#
+#
+#    tempC = max.temperature_CVD()
+#    print('Callendar-Van Dusen Temp: {:.5} degC, {:.5} degF'.format(tempC, c2f(tempC)))
+#
+#    tempC = max.temperature_poly3()
+#    print('3rd Order Poly Fit Temp: {:.5} degC, {:.5} degF'.format(tempC, c2f(tempC)))
+#
+#    tempC = max.temperature_poly4()
+#    print('4th Order Poly Fit Temp: {:.5} degC, {:.5} degF'.format(tempC, c2f(tempC)))
+#
+#    tempC = max.temperature_poly5()
+#    print('5th Order Poly Fit Temp: {:.5} degC, {:.5} degF'.format(tempC, c2f(tempC)))
+#
+#    tempC = max.temperature()
+#    print('5th Order Poly Fit Temp: {:.5} degC, {:.5} degF'.format(tempC, c2f(tempC)))
+#
 
     GPIO.cleanup()
 
