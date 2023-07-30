@@ -6,6 +6,10 @@ import RPi.GPIO as GPIO
 import threading
 
 
+# version number
+__VERSION__ = '1.0.0.2-dev.2'
+
+
 #
 # class max31865
 #
